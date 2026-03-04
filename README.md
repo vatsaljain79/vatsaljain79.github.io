@@ -1,1 +1,1 @@
-https://vatsaljain79.github.io/portfolio-web/
+https://vatsaljain79.github.io
