@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedding Registry</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,600&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        body{font-family:'Lato',sans-serif;background-color:#fcfaf8;color:#4a4a4a;margin:0;padding:0;display:flex;flex-direction:column;align-items:center;}
+        .hdr{text-align:center;padding:50px 20px 20px;width:100%;max-width:800px;}
+        h1,h2,h3{font-family:'Playfair Display',serif;color:#6b5b4a;margin:0;}
+        h2{font-size:2.8rem;margin-bottom:10px;letter-spacing:1px;}
+        .sub{font-size:1.2rem;font-style:italic;color:#8c7b6a;margin-bottom:30px;}
+        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:30px;width:100%;max-width:900px;padding:0 20px 60px;box-sizing:border-box;}
+        .card{background:#fff;border:1px solid #e8e3dc;border-radius:12px;padding:35px 25px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.03);transition:transform 0.3s ease,box-shadow 0.3s ease;}
+        .card:hover{transform:translateY(-5px);box-shadow:0 15px 35px rgba(0,0,0,0.08);}
+        .card h3{font-size:1.5rem;margin-bottom:15px;}
+        .stat{font-size:0.85rem;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:25px;color:#a39171;font-weight:bold;}
+        button{font-family:'Lato',sans-serif;padding:14px 24px;cursor:pointer;background:#8c7b6a;color:#fff;border:none;border-radius:6px;font-size:0.95rem;text-transform:uppercase;letter-spacing:1px;transition:background 0.3s;width:100%;font-weight:bold;}
+        button:hover:not(:disabled){background:#6b5b4a;}
+        button:disabled{background:#d5d0c8;cursor:not-allowed;color:#888;}
+        .btn-red{background:#b87365;}
+        .btn-red:hover{background:#9a5b4f;}
+        .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(252,250,248,0.85);backdrop-filter:blur(6px);display:flex;justify-content:center;align-items:center;z-index:100;}
+        .modal{background:#fff;padding:50px 40px;border-radius:12px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.1);border:1px solid #e8e3dc;}
+        .modal h3{font-size:2rem;margin-bottom:15px;}
+        .modal p{color:#8c7b6a;margin-bottom:30px;font-size:1rem;line-height:1.5;}
+        .modal input{width:100%;padding:15px;margin-bottom:15px;border:1px solid #d5d0c8;border-radius:6px;box-sizing:border-box;font-family:'Lato',sans-serif;font-size:1rem;background:#fcfaf8;transition:border-color 0.3s;}
+        .modal input:focus{outline:none;border-color:#8c7b6a;}
+        .guest-info{background:#fff;border:1px solid #e8e3dc;padding:10px 25px;border-radius:30px;font-size:0.95rem;display:inline-flex;align-items:center;gap:15px;margin-bottom:30px;box-shadow:0 4px 15px rgba(0,0,0,0.03);color:#6b5b4a;}
+        .logout{background:none;color:#b87365;padding:0;width:auto;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;cursor:pointer;font-weight:bold;}
+        .logout:hover{background:none;color:#9a5b4f;}
+    </style>
+</head>
+<body>
+    <div id="m1" class="modal-overlay">
+        <div class="modal">
+            <h3>Welcome</h3>
+            <p>Please enter your details to view the registry.</p>
+            <input type="text" id="n1" placeholder="Full Name">
+            <input type="text" id="r1" placeholder="City">
+            <button onclick="log()">Enter Registry</button>
+        </div>
+    </div>
+
+    <div class="hdr">
+        <h2>Gift Registry</h2>
+        <div class="sub">Your presence is our biggest blessing.</div>
+        <div id="g1" class="guest-info" style="display:none;">
+            <span id="t1"></span>
+            <button class="logout" onclick="out()">Logout</button>
+        </div>
+    </div>
+    
+    <div id="ui" class="grid"></div>
+
+    <script>
+        const url = 'https://btgtttxqtavcpfhbakxf.supabase.co';
+        const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0Z3R0dHhxdGF2Y3BmaGJha3hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMzgxMDEsImV4cCI6MjA5ODgxNDEwMX0.otjEwZ8ONPnWf899IIvfPk1WXWWqjDkquY4HVhEGyAY';
+
+        const sb = supabase.createClient(url, key);
+
+        let u = null;
+        let cg = null;
+
+        async function chk() {
+            let s = localStorage.getItem('wg');
+            if (s) {
+                u = JSON.parse(s);
+                document.getElementById('m1').style.display = 'none';
+                document.getElementById('g1').style.display = 'inline-flex';
+                document.getElementById('t1').innerText = u.n + " (" + u.r + ")";
+                
+                let { data: d } = await sb.from('claims').select('g_id').eq('u_name', u.n).eq('u_res', u.r).maybeSingle();
+                cg = d ? d.g_id : null;
+                ld();
+            }
+        }
+
+        async function log() {
+            let n = document.getElementById('n1').value.trim();
+            let r = document.getElementById('r1').value.trim();
+            if (!n || !r) return alert("Fill all");
+            localStorage.setItem('wg', JSON.stringify({n, r}));
+            chk();
+        }
+
+        function out() {
+            localStorage.removeItem('wg');
+            location.reload();
+        }
+
+        async function ld() {
+            let { data: d } = await sb.from('gifts').select('*').order('id');
+            let ui = document.getElementById('ui');
+            ui.innerHTML = '';
+            
+            d.forEach(g => {
+                let rem = g.max_limit - g.claimed;
+                let c = document.createElement('div');
+                c.className = 'card';
+                
+                let b = '';
+                if (cg === g.id) {
+                    b = `<button class="btn-red" onclick="un(${g.id})">Remove Selection</button>`;
+                } else if (cg !== null) {
+                    b = `<button disabled>Claimed Another Item</button>`;
+                } else {
+                    b = `<button onclick="cl(${g.id})" ${rem === 0 ? 'disabled' : ''}>${rem === 0 ? 'Fully Claimed' : 'Select Gift'}</button>`;
+                }
+
+                c.innerHTML = `<h3>${g.name}</h3><div class="stat">${g.claimed} of ${g.max_limit} Claimed</div>${b}`;
+                ui.appendChild(c);
+            });
+        }
+
+        async function cl(i) {
+            let { data: res } = await sb.rpc('claim_gift', { i: i, n: u.n, r: u.r });
+            if (res === 'A') alert("Limit reached.");
+            else if (res === 'F') alert("Full.");
+            else { cg = i; ld(); }
+        }
+
+        async function un() {
+            await sb.rpc('unclaim_gift', { n: u.n, r: u.r });
+            cg = null;
+            ld();
+        }
+
+        window.onload = chk;
+    </script>
+</body>
+</html>
+
+
